@@ -1,139 +1,231 @@
 # Tunisia Wildfire Risk Dashboard
 
-This package is a ready-to-deploy Streamlit app that aggregates the two wildfire models developed in the notebooks:
+This repository contains a ready-to-deploy Streamlit application for wildfire risk analysis in Tunisia. The app combines two complementary modelling layers:
 
-1. **Strategic annual fire severity prediction at governorate level**
-   - Source notebook: `First_model (1).ipynb`
-   - Source dataset: `refined_tunisia_wildfire_dataset.csv`
-   - Purpose preserved: annual governorate-level Low / Medium / High severity classification, plus annual fire-count and burned-area regression.
+1. **Strategic annual fire-severity prediction at governorate level**
+2. **Operational daily 500 m pixel-risk ranking and alerting**
 
-2. **Operational 500 m pixel-level daily fire-risk ranking**
-   - Source workflow: the operational pixel model developed earlier in this chat.
-   - Purpose preserved: daily 500 m proxy-pixel risk ranking and alert allocation using `target_fire_1d` and `case_control_weight`.
+A validation bridge connects the annual governorate-level severity layer with the daily pixel-level alert layer by aggregating daily pixel alerts to governorate-year summaries.
 
-3. **Annual–pixel validation bridge**
-   - The bridge does not change either model. It aggregates daily pixel alert pressure to governorate-year level and compares it with the annual strategic severity model.
-   - This was implemented directly in the Streamlit app because only one new annual notebook and one annual dataset were uploaded with the latest request.
+## Application overview
 
-## What is included
+The dashboard provides:
+
+- Annual fire-severity predictions by governorate
+- Daily 500 m pixel-level fire-risk ranking
+- Critical, High, and Watch alert tiers
+- Interactive map-based alert exploration
+- Annual-to-daily validation bridge summaries
+- Model performance and feature-importance views
+- Downloadable alert tables and prediction outputs
+
+## Repository layout
+
+The app supports two layouts.
+
+### Option A — flat repository layout
+
+Place all files directly in the repository root:
 
 ```text
-streamlit_wildfire_app/
-  app.py
-  README.md
-  requirements.txt
-  data/
-    refined_tunisia_wildfire_dataset.csv
-    annual_governorate_predictions.csv
-    annual_governorate_metrics.json
-    final_trainable_500m_wildfire_dataset_model_aligned.csv
-    operational_pixel_scores_all.csv
-    operational_pixel_proxy_feature_importance.csv
-    operational_pixel_proxy_metrics.json
-    bridge_annual_pixel_alerts.csv
-  models/
-    annual_governorate_model_bundle.joblib
-    operational_pixel_proxy_model_bundle.joblib
+app.py
+requirements.txt
+refined_tunisia_wildfire_dataset.csv
+annual_governorate_predictions.csv
+annual_governorate_metrics.json
+annual_governorate_model_bundle.joblib
+final_trainable_500m_wildfire_dataset_model_aligned.csv
+operational_pixel_scores_all.csv
+operational_pixel_proxy_feature_importance.csv
+operational_pixel_proxy_metrics.json
+operational_pixel_proxy_model_bundle.joblib
+bridge_annual_pixel_alerts.csv
 ```
 
-## Important modelling scope
+The app also supports the filename variant:
 
-The app intentionally keeps the two model purposes separate:
+```text
+refined_tunisia_wildfire_dataset(1).csv
+```
 
-- The **annual model** is strategic and governorate-level. It is suitable for annual planning, severity review, and governorate comparison.
-- The **operational pixel model** is tactical and daily. It is suitable for ranking candidate 500 m proxy pixels and generating alert lists.
-- The current pixel model is still a **historical-fire-cell proxy model**, not a full national burnable-landscape probability model. Treat outputs as relative alert rankings unless the full 500 m burnable grid is later substituted.
+### Option B — organized repository layout
 
-## Minimum changes made
+You may also organize files into folders:
 
-The app was built with minimum necessary changes to make the notebooks deployable:
+```text
+app.py
+requirements.txt
 
-- Converted notebook logic into reusable Python functions.
-- Preserved the annual model's risk-score formula: `0.6 * normalized_fire_count + 0.4 * normalized_burned_area`.
-- Preserved the annual model's random-forest classifier and random-forest regressors.
-- Preserved the operational model's target `target_fire_1d`, sample weighting, feature set, calibrated proxy probability, and alert-budget approach.
-- Added a small quality fix to the annual severity binning: the lower severity threshold uses `<= q33` rather than `< q33`. In this dataset `q33 = 0`, so the original strict comparison would remove the Low class from training.
-- Added a bridge table joining annual severity with daily pixel alert pressure by governorate and year.
+data/
+  refined_tunisia_wildfire_dataset.csv
+  annual_governorate_predictions.csv
+  annual_governorate_metrics.json
+  final_trainable_500m_wildfire_dataset_model_aligned.csv
+  operational_pixel_scores_all.csv
+  operational_pixel_proxy_feature_importance.csv
+  operational_pixel_proxy_metrics.json
+  bridge_annual_pixel_alerts.csv
 
-## Run locally
+models/
+  annual_governorate_model_bundle.joblib
+  operational_pixel_proxy_model_bundle.joblib
+```
 
-From inside the app folder:
+The application automatically searches both the repository root and the `data/` and `models/` folders.
+
+## Required files
+
+At minimum, the following files are needed for deployment:
+
+```text
+app.py
+requirements.txt
+refined_tunisia_wildfire_dataset.csv
+final_trainable_500m_wildfire_dataset_model_aligned.csv
+operational_pixel_proxy_model_bundle.joblib
+operational_pixel_proxy_feature_importance.csv
+operational_pixel_proxy_metrics.json
+```
+
+The following files are recommended because they make startup faster:
+
+```text
+annual_governorate_predictions.csv
+annual_governorate_metrics.json
+annual_governorate_model_bundle.joblib
+operational_pixel_scores_all.csv
+bridge_annual_pixel_alerts.csv
+```
+
+If the recommended annual artifacts are missing, the app can rebuild them from the annual source dataset. If `operational_pixel_scores_all.csv` is missing, the app can generate it from the pixel model bundle and the model-aligned pixel feature table.
+
+## Local installation
+
+Create a Python environment and install the dependencies:
 
 ```bash
 python -m venv .venv
-source .venv/bin/activate  # Windows: .venv\Scripts\activate
+source .venv/bin/activate  # Linux/macOS
+# .venv\Scripts\activate   # Windows
 pip install -r requirements.txt
+```
+
+Run the app locally:
+
+```bash
 streamlit run app.py
 ```
 
-## Deploy
+## Streamlit Cloud deployment
 
-You can deploy the whole folder to Streamlit Community Cloud, a VPS, Docker, or any internal server that can run Python.
+1. Push the repository to GitHub.
+2. Open Streamlit Community Cloud.
+3. Create a new app from the repository.
+4. Set the main file path to:
 
-For Streamlit Community Cloud:
-
-1. Push the folder contents to a GitHub repository.
-2. Set `app.py` as the Streamlit entry point.
-3. Make sure `requirements.txt` is in the repository root or app folder used by Streamlit.
-4. Keep the `data/` and `models/` folders in the same directory as `app.py`.
-
-## Optional email alert system
-
-The dashboard can send the current alert table by email if Streamlit secrets are configured.
-
-Create `.streamlit/secrets.toml` with:
-
-```toml
-[alerts]
-email_enabled = true
-smtp_host = "smtp.example.com"
-smtp_port = 587
-smtp_user = "your_user@example.com"
-smtp_password = "your_password_or_app_password"
-sender = "alerts@example.com"
-recipients = ["recipient@example.com"]
+```text
+app.py
 ```
 
-Do not hardcode credentials in `app.py`.
+5. Deploy the app.
+
+If large files are used, commit them with Git LFS and confirm that the actual model and data files are available in the deployed repository, not only LFS pointer files.
 
 ## Dashboard pages
 
-### Strategic annual severity
+### 1. Strategic annual severity
 
-Shows:
+This page displays annual fire-severity predictions at governorate level. It keeps the strategic annual model focused on long-term severity assessment, including risk class, predicted annual fire count, and predicted burned area.
 
-- Annual severity classification by governorate.
-- Predicted fire count.
-- Predicted burned area.
-- Annual model metrics.
+### 2. Operational pixel alerts
 
-### Operational pixel alerts
+This page displays daily 500 m pixel-risk scores and ranking-based alert tiers. Alert tiers are assigned by daily score percentile:
 
-Shows:
+| Tier | Rule | Intended use |
+|---|---|---|
+| Critical | Top 1% of scored pixels | Highest-priority alerts |
+| High | Top 5% of scored pixels | Operational alert layer |
+| Watch | Top 10% of scored pixels | Wider monitoring layer |
+| Normal | Remaining scored pixels | Routine monitoring |
 
-- Daily 500 m proxy-pixel risk map.
-- Top 1%, 5%, or 10% alert budgets.
-- Downloadable alert list.
-- Optional email alert delivery.
-- Optional upload-and-score workflow for a new daily feature table matching the model schema.
+The pixel model is designed for relative risk ranking. Scores should be interpreted as alert-ranking values rather than fully calibrated national fire probabilities.
 
-### Annual–pixel bridge
+### 3. Annual–pixel bridge
 
-Shows:
+This page aggregates daily pixel alerts to governorate-year level and compares them with the strategic annual severity predictions. The bridge does not change either model; it provides an integrated validation and interpretation layer.
 
-- Governorate-year comparison between annual severity and daily alert pressure.
-- Critical / high / watch pixel-day counts aggregated by year.
-- Observed fire pixel-days in the proxy dataset.
+### 4. Model diagnostics
 
-### Model monitoring
+This page summarizes model metrics, score distributions, and feature importance for monitoring and interpretation.
 
-Shows:
+## Model scope and interpretation
 
-- Annual and pixel model metrics.
-- Pixel feature importance.
-- Score distributions by year.
-- Scope and data-quality warnings.
+The system includes two model scopes:
 
-## Production next step
+- The annual model supports strategic governorate-level planning.
+- The daily pixel model supports short-term alert prioritization over the currently available 500 m pixel proxy universe.
 
-To make the operational page fully production-grade, replace the current proxy pixel universe with a daily feature table generated from the full national 500 m burnable grid. The app already supports scoring an uploaded feature table as long as it contains the same model feature columns.
+The daily pixel model currently scores a historical-fire-cell proxy dataset rather than a complete nationwide burnable-land grid. For this reason, daily pixel scores should be used for ranking and alert prioritization, not as absolute nationwide probability estimates.
+
+## Data and model notes
+
+- The operational pixel model uses `target_fire_1d` as the target.
+- The model-aligned pixel dataset uses `case_control_weight` during model development.
+- Wind direction was excluded due to inconsistent availability.
+- Precipitation gaps were handled through training-period seasonal imputation with missingness indicators.
+- Prior-fire history was treated as censored historical information rather than ordinary missing data.
+- Raw FIRMS detection metadata is not used as a predictor in the operational pixel model.
+
+## Updating the data
+
+To update the app with new scoring data:
+
+1. Prepare a new daily feature file with the same schema as `final_trainable_500m_wildfire_dataset_model_aligned.csv`.
+2. Place the file in the repository root or the `data/` folder.
+3. Use the scoring page in the app to generate daily scores, or replace `operational_pixel_scores_all.csv` with the updated scored output.
+4. Redeploy the app.
+
+## Troubleshooting
+
+### FileNotFoundError during deployment
+
+Check that all required files are committed to the repository and that filenames match the expected names. The app can read files from either the repository root or the `data/` and `models/` folders.
+
+### ModuleNotFoundError
+
+Confirm that `requirements.txt` is present in the repository root and that all dependencies are listed.
+
+### Large file problems
+
+Use Git LFS for large `.csv` or `.joblib` files. After pushing, verify that the deployed repository contains the actual file contents.
+
+### Empty map or missing alerts
+
+Confirm that the scored pixel file contains latitude and longitude columns:
+
+```text
+pixel_centroid_lat_proxy
+pixel_centroid_lon_proxy
+```
+
+Also confirm that the selected date and governorate contain scored pixel records.
+
+## Limitations
+
+The current app is suitable for demonstration, validation, and operational prototyping. A fully calibrated nationwide pixel-level fire probability system requires a complete burnable-land grid, pixel-specific live vegetation features, operational weather forecasts, and daily scoring over all eligible 500 m cells.
+
+
+## Strategic model v2 update
+
+The annual governorate severity model has been updated to improve the 2025 strategic audit. The update keeps the original annual governorate purpose but applies a more stable severity definition and more conservative outbreak-aware prediction logic.
+
+Key changes:
+
+- Replaces the unstable governorate-min/max risk label with a global robust log severity score: 60% fire count and 40% burned area.
+- Preserves Low/Medium/High severity classes using fixed operational thresholds on the robust score.
+- Removes satellite-derived leakage fields from predictors.
+- Adds causal lag, rolling, and historical-capacity features by governorate.
+- Uses a log-scale ensemble for burned-area prediction.
+- Uses a conservative historical-capacity floor for annual fire-count prediction to reduce systematic under-alerting in outbreak years.
+
+The 2025 rows are used as an audit set in the metrics file. The deployable model bundle is retrained on all available annual records through 2025 for future forecasts.
